@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -20,26 +21,33 @@ class WorkerThread implements Callable{
     	this.send=send;
     	this.waitedRounds=waitedRounds;
     	this.map=map;
+    	this.message=message;
+    	this.status=status;
     }
 
 	@Override
 	public Object call() throws Exception {
 		// TODO Auto-generated method stub
+		System.out.println(uid);
 		setMessage();
+		Thread.sleep(3000);
 		changeState();
-		return status;
+		return this;
 	}
 	
 	public void setMessage() {
+		System.out.println(status+" "+uid +" "+message);
 		if(waitedRounds==Math.pow(2, send)) {map.put(uid,send);}
 		else {waitedRounds++;map.put(uid,null);}
 	}
+	
 	public void changeState() {
 		
 		if(map.get(message)!=null) {
 			Integer minId=map.get(message);
-			if(minId<send) {send=minId;waitedRounds=0.0;}
-			else if(minId==uid) {status=String.valueOf(uid);}
+			if(minId==uid) {status=String.valueOf(uid);}
+			else if(minId<send) {send=minId;waitedRounds=0.0;}
+			System.out.println(status+" "+uid +" "+ message+" "+status);
 		}
 		
 	}
@@ -54,27 +62,37 @@ public class VariableSpeedsAlgorithm {
 	public static void main(String[] args) {
 		try {
 			BufferedReader br=new BufferedReader(new FileReader("input.dat"));
-			Integer noOfThreads=br.read();
+		
+			Integer noOfThreads=Integer.parseInt(br.readLine());
+			String[] ids=br.readLine().split("\\s+");
 			Thread[] a=new Thread[noOfThreads];
 			Integer[] uids=new Integer[noOfThreads];
 			for(Integer i=0;i<noOfThreads;i++) {
-				uids[i]=br.read();
+				uids[i]=Integer.parseInt(ids[i]);
 			}
+			System.out.println(Arrays.toString(uids));
 			String leader="unknown";
 			HashMap<Integer,Integer> map=new HashMap();
 			for(Integer r:uids) {map.put(r, r);}
-			FutureTask<String>[] future=new FutureTask[noOfThreads];
+			FutureTask<WorkerThread>[] future=new FutureTask[noOfThreads];
 			for(Integer i=0;i<noOfThreads;i++) {
-				WorkerThread thread=new WorkerThread(uids[i],uids[i],Math.pow(2,uids[i]),map,(i-1>0)?uids[i-1]:noOfThreads-1,"unknown");
-				future[i]=new FutureTask<String>(thread);
+				WorkerThread thread=new WorkerThread(uids[i],uids[i],Math.pow(2,uids[i]),map,(i-1>=0)?uids[i-1]:uids[noOfThreads-1],"unknown");
+				future[i]=new FutureTask<WorkerThread>(thread);
 			}
 			while(leader.equals("unknown")) {
+				
 				for(Integer i=0;i<noOfThreads;i++) {
-					new Thread(future[i]);
+					new Thread(future[i]).start();
 				}
 				for(Integer i=0;i<noOfThreads;i++) {
-					if(!future[i].get().equals("unknown")) {leader=future[i].get();}
+					WorkerThread thread=future[i].get();
+					if(!thread.status.equals("unknown")) {leader=thread.status;}
 				}
+				for(Integer i=0;i<noOfThreads;i++) {
+					WorkerThread thread=future[i].get();
+					future[i]=new FutureTask<WorkerThread>(thread);
+				}
+				
 			}
 			System.out.println("UID with "+leader+" is the leader");
 			
